@@ -1,5 +1,8 @@
+from __future__ import annotations
+
 import json
 from pathlib import Path
+from typing import Optional
 from config import settings
 from db import get_connection
 
@@ -150,7 +153,7 @@ async def generate_coaching_report(session_id: int) -> dict:
     return _format_report(stored)
 
 
-def get_report(session_id: int) -> dict | None:
+def get_report(session_id: int) -> Optional[dict]:
     """Fetch an existing coaching report for a session."""
     conn = get_connection()
     row = conn.execute(

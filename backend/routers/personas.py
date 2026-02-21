@@ -18,10 +18,12 @@ async def list_personas():
 async def create_persona(data: PersonaCreate):
     conn = get_connection()
     cursor = conn.execute(
-        """INSERT INTO personas (name, description, type, system_prompt, voice_id, voice_name, avatar_color, tags)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+        """INSERT INTO personas (name, description, type, system_prompt, voice_id, voice_name, avatar_color, tags,
+                                 company_name, industry, product_name, competitors)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
         (data.name, data.description, data.type, data.system_prompt,
-         data.voice_id, data.voice_name, data.avatar_color, data.tags),
+         data.voice_id, data.voice_name, data.avatar_color, data.tags,
+         data.company_name, data.industry, data.product_name, data.competitors),
     )
     conn.commit()
     persona = conn.execute("SELECT * FROM personas WHERE id = ?", (cursor.lastrowid,)).fetchone()
@@ -53,6 +55,10 @@ async def export_persona(persona_id: int):
         "voice_name": persona["voice_name"],
         "avatar_color": persona["avatar_color"],
         "tags": persona["tags"],
+        "company_name": persona["company_name"],
+        "industry": persona["industry"],
+        "product_name": persona["product_name"],
+        "competitors": persona["competitors"],
         "objections": [dict(o) for o in objections],
     }
     return export
@@ -63,8 +69,9 @@ async def import_persona(data: dict):
     """Import a persona and its objections from JSON."""
     conn = get_connection()
     cursor = conn.execute(
-        """INSERT INTO personas (name, description, type, system_prompt, voice_id, voice_name, avatar_color, tags)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+        """INSERT INTO personas (name, description, type, system_prompt, voice_id, voice_name, avatar_color, tags,
+                                 company_name, industry, product_name, competitors)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
         (data.get("name", "Imported Persona"),
          data.get("description", ""),
          data.get("type", "custom"),
@@ -72,7 +79,11 @@ async def import_persona(data: dict):
          data.get("voice_id", ""),
          data.get("voice_name"),
          data.get("avatar_color", "#F46800"),
-         data.get("tags")),
+         data.get("tags"),
+         data.get("company_name"),
+         data.get("industry"),
+         data.get("product_name"),
+         data.get("competitors")),
     )
     persona_id = cursor.lastrowid
 

@@ -14,6 +14,10 @@ class PersonaCreate(BaseModel):
     voice_name: Optional[str] = None
     avatar_color: Optional[str] = "#F46800"
     tags: Optional[str] = None
+    company_name: Optional[str] = None
+    industry: Optional[str] = None
+    product_name: Optional[str] = None
+    competitors: Optional[str] = None
 
 
 class PersonaUpdate(BaseModel):
@@ -25,6 +29,10 @@ class PersonaUpdate(BaseModel):
     voice_name: Optional[str] = None
     avatar_color: Optional[str] = None
     tags: Optional[str] = None
+    company_name: Optional[str] = None
+    industry: Optional[str] = None
+    product_name: Optional[str] = None
+    competitors: Optional[str] = None
 
 
 class Persona(BaseModel):
@@ -37,6 +45,10 @@ class Persona(BaseModel):
     voice_name: Optional[str] = None
     avatar_color: str = "#F46800"
     tags: Optional[str] = None
+    company_name: Optional[str] = None
+    industry: Optional[str] = None
+    product_name: Optional[str] = None
+    competitors: Optional[str] = None
     is_default: bool = False
     created_at: Optional[str] = None
     updated_at: Optional[str] = None

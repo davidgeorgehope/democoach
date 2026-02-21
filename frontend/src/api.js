@@ -70,6 +70,7 @@ export const extractObjections = (id) => request(`/transcripts/${id}/extract`, {
 export const deleteTranscript = (id) => request(`/transcripts/${id}`, { method: 'DELETE' })
 
 // Research
+export const researchPersona = (personaId) => request(`/research/persona/${personaId}`, { method: 'POST' })
 export const researchCompany = (data) => request('/research/company', { method: 'POST', body: data })
 export const researchCompetitive = (data) => request('/research/competitive', { method: 'POST', body: data })
 

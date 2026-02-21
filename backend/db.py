@@ -39,6 +39,10 @@ def init_db():
             voice_name TEXT,
             avatar_color TEXT DEFAULT '#F46800',
             tags TEXT,
+            company_name TEXT,
+            industry TEXT,
+            product_name TEXT,
+            competitors TEXT,
             is_default BOOLEAN DEFAULT 0,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -127,11 +131,13 @@ def _run_migrations(conn):
     """Add columns that may be missing from existing databases."""
     cursor = conn.cursor()
 
-    # Check if personas.tags column exists
     cols = [row[1] for row in cursor.execute("PRAGMA table_info(personas)").fetchall()]
     if "tags" not in cols:
         cursor.execute("ALTER TABLE personas ADD COLUMN tags TEXT")
-        conn.commit()
+    for col in ("company_name", "industry", "product_name", "competitors"):
+        if col not in cols:
+            cursor.execute(f"ALTER TABLE personas ADD COLUMN {col} TEXT")
+    conn.commit()
 
 
 def seed_data():
@@ -152,17 +158,21 @@ def seed_data():
 
     # Seed personas
     cursor.execute("""
-        INSERT INTO personas (name, description, type, system_prompt, voice_id, voice_name, avatar_color, is_default)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO personas (name, description, type, system_prompt, voice_id, voice_name, avatar_color, is_default,
+                              company_name, industry, product_name, competitors)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     """, ("Andrew", "Director of Operations at a Fortune 500 company evaluating observability platforms",
-          "customer", customer_prompt, settings.DEFAULT_CUSTOMER_VOICE, "George", "#F46800", 1))
+          "customer", customer_prompt, settings.DEFAULT_CUSTOMER_VOICE, "George", "#F46800", 1,
+          "Globex Financial", "Financial Services", "Grafana", "Datadog, Dynatrace, Splunk"))
     customer_id = cursor.lastrowid
 
     cursor.execute("""
-        INSERT INTO personas (name, description, type, system_prompt, voice_id, voice_name, avatar_color, is_default)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO personas (name, description, type, system_prompt, voice_id, voice_name, avatar_color, is_default,
+                              company_name, industry, product_name, competitors)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     """, ("Panel SE", "Senior Advisory SE on a panel interview",
-          "panelist", panelist_prompt, settings.DEFAULT_PANELIST_VOICE, "Charlie", "#3B82F6", 1))
+          "panelist", panelist_prompt, settings.DEFAULT_PANELIST_VOICE, "Charlie", "#3B82F6", 1,
+          None, None, "Grafana", "Datadog, Dynatrace, Splunk"))
     panelist_id = cursor.lastrowid
 
     # Seed customer objections

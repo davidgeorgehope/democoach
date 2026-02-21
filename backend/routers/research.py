@@ -20,6 +20,55 @@ class CompetitiveResearchRequest(BaseModel):
     session_id: Optional[int] = None
 
 
+@router.post("/persona/{persona_id}")
+async def research_persona(persona_id: int):
+    """Auto-research a persona based on its company/industry/product fields."""
+    conn = get_connection()
+    persona = conn.execute("SELECT * FROM personas WHERE id = ?", (persona_id,)).fetchone()
+    conn.close()
+    if not persona:
+        raise HTTPException(status_code=404, detail="Persona not found")
+
+    results = {}
+    research_ids = []
+
+    # Run company research if persona has company info
+    if persona["company_name"]:
+        try:
+            company_results = await research_company(persona["company_name"], persona["industry"] or "")
+            conn = get_connection()
+            cursor = conn.execute(
+                """INSERT INTO research (research_type, query, results_json)
+                   VALUES ('company', ?, ?)""",
+                (persona["company_name"], json.dumps(company_results)),
+            )
+            conn.commit()
+            research_ids.append(cursor.lastrowid)
+            conn.close()
+            results["company"] = {"id": research_ids[-1], **company_results}
+        except Exception as e:
+            results["company"] = {"error": str(e)}
+
+    # Run competitive research if persona has product info
+    if persona["product_name"]:
+        try:
+            competitive_results = await research_competitive(persona["product_name"], persona["competitors"] or "")
+            conn = get_connection()
+            cursor = conn.execute(
+                """INSERT INTO research (research_type, query, results_json)
+                   VALUES ('competitive', ?, ?)""",
+                (persona["product_name"], json.dumps(competitive_results)),
+            )
+            conn.commit()
+            research_ids.append(cursor.lastrowid)
+            conn.close()
+            results["competitive"] = {"id": research_ids[-1], **competitive_results}
+        except Exception as e:
+            results["competitive"] = {"error": str(e)}
+
+    return {"research_ids": research_ids, **results}
+
+
 @router.post("/company")
 async def do_company_research(data: CompanyResearchRequest):
     try:
@@ -29,7 +78,6 @@ async def do_company_research(data: CompanyResearchRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Research failed: {e}")
 
-    # Store in DB
     conn = get_connection()
     cursor = conn.execute(
         """INSERT INTO research (session_id, research_type, query, results_json)
@@ -52,12 +100,11 @@ async def do_competitive_research(data: CompetitiveResearchRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Research failed: {e}")
 
-    # Store in DB
     conn = get_connection()
     cursor = conn.execute(
         """INSERT INTO research (session_id, research_type, query, results_json)
            VALUES (?, 'competitive', ?, ?)""",
-        (data.session_id, data.company_name if hasattr(data, 'company_name') else data.product_name, json.dumps(results)),
+        (data.session_id, data.product_name, json.dumps(results)),
     )
     conn.commit()
     research_id = cursor.lastrowid

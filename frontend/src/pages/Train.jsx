@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { listPersonas, startSession, endSession, getModels, researchCompany, researchCompetitive, getOpenAIRealtimeToken } from '../api'
+import { listPersonas, startSession, endSession, getModels, researchPersona, getOpenAIRealtimeToken } from '../api'
 import VoiceSession from '../components/VoiceSession'
 import OpenAIVoiceSession from '../components/OpenAIVoiceSession'
 
@@ -25,15 +25,9 @@ export default function Train() {
   const [selectedLlm, setSelectedLlm] = useState('')
   const [selectedTts, setSelectedTts] = useState('')
 
-  // Research
-  const [showResearch, setShowResearch] = useState(false)
-  const [companyName, setCompanyName] = useState('')
-  const [industry, setIndustry] = useState('')
-  const [productName, setProductName] = useState('')
-  const [competitors, setCompetitors] = useState('')
-  const [companyResults, setCompanyResults] = useState(null)
-  const [competitiveResults, setCompetitiveResults] = useState(null)
-  const [researchLoading, setResearchLoading] = useState(null) // 'company' | 'competitive' | null
+  // Research (auto-triggered when persona is selected)
+  const [researchResults, setResearchResults] = useState(null)
+  const [researchLoading, setResearchLoading] = useState(false)
   const [researchIds, setResearchIds] = useState([])
 
   // Load available models
@@ -78,6 +72,27 @@ export default function Train() {
       if (!personaId && p.length) setPersonaId(p[0].id)
     })
   }, [])
+
+  // Auto-research when persona changes
+  useEffect(() => {
+    if (!personaId) return
+    const persona = personas.find(p => p.id == personaId)
+    if (!persona || (!persona.company_name && !persona.product_name)) {
+      setResearchResults(null)
+      setResearchIds([])
+      return
+    }
+    setResearchLoading(true)
+    setResearchResults(null)
+    setResearchIds([])
+    researchPersona(personaId)
+      .then(res => {
+        setResearchResults(res)
+        setResearchIds(res.research_ids || [])
+      })
+      .catch(e => console.error('Auto-research failed:', e))
+      .finally(() => setResearchLoading(false))
+  }, [personaId, personas])
 
   // Auto-start if navigated from dashboard with state
   useEffect(() => {
@@ -201,115 +216,55 @@ Start by introducing yourself as ${persona.name} and ask them to begin their dem
             />
           </div>
 
-          {/* Research Section */}
-          <div>
-            <button
-              type="button"
-              onClick={() => setShowResearch(!showResearch)}
-              className="text-sm text-primary hover:text-primary-hover transition-colors flex items-center gap-1"
-            >
-              {showResearch ? '▾' : '▸'} Research & Intel
-            </button>
-            {showResearch && (
-              <div className="mt-3 space-y-3 bg-bg rounded-lg p-4 border border-border">
-                {/* Company Research */}
-                <div className="space-y-2">
-                  <p className="text-xs font-medium text-text-secondary uppercase">Company Research</p>
-                  <div className="flex gap-2">
-                    <input
-                      value={companyName}
-                      onChange={e => setCompanyName(e.target.value)}
-                      placeholder="Company name"
-                      className="flex-1 bg-surface border border-border rounded-lg px-3 py-1.5 text-sm text-text focus:outline-none focus:border-primary"
-                    />
-                    <input
-                      value={industry}
-                      onChange={e => setIndustry(e.target.value)}
-                      placeholder="Industry (optional)"
-                      className="flex-1 bg-surface border border-border rounded-lg px-3 py-1.5 text-sm text-text focus:outline-none focus:border-primary"
-                    />
-                    <button
-                      onClick={async () => {
-                        if (!companyName) return
-                        setResearchLoading('company')
-                        try {
-                          const res = await researchCompany({ company_name: companyName, industry })
-                          setCompanyResults(res)
-                          setResearchIds(prev => [...prev, res.id])
-                        } catch (e) { setError(e.message) }
-                        setResearchLoading(null)
-                      }}
-                      disabled={!companyName || researchLoading}
-                      className="px-3 py-1.5 bg-primary text-white rounded-lg text-xs font-medium hover:bg-primary-hover disabled:opacity-50 transition-colors whitespace-nowrap"
-                    >
-                      {researchLoading === 'company' ? 'Searching...' : 'Research'}
-                    </button>
-                  </div>
-                  {companyResults && (
-                    <div className="text-xs text-text bg-surface rounded-lg p-3 max-h-48 overflow-y-auto whitespace-pre-wrap">
-                      {companyResults.content}
-                      {companyResults.sources?.length > 0 && (
-                        <div className="mt-2 pt-2 border-t border-border">
-                          <p className="text-text-secondary font-medium">Sources:</p>
-                          {companyResults.sources.map((s, i) => (
-                            <a key={i} href={s.url} target="_blank" rel="noopener noreferrer" className="block text-primary hover:underline truncate">{s.title || s.url}</a>
+          {/* Auto Research (driven by persona) */}
+          {(researchLoading || researchResults) && (
+            <div className="space-y-2">
+              <p className="text-xs font-medium text-text-secondary uppercase flex items-center gap-2">
+                Research & Intel
+                {researchLoading && <span className="inline-block w-3 h-3 border-2 border-primary border-t-transparent rounded-full animate-spin" />}
+              </p>
+              {researchLoading && (
+                <p className="text-xs text-text-secondary">Researching persona background...</p>
+              )}
+              {researchResults && (
+                <div className="bg-bg rounded-lg p-4 border border-border space-y-3 max-h-64 overflow-y-auto">
+                  {/* Show errors */}
+                  {researchResults.company?.error && (
+                    <p className="text-xs text-warning">{researchResults.company.error}</p>
+                  )}
+                  {researchResults.competitive?.error && !researchResults.company?.error && (
+                    <p className="text-xs text-warning">{researchResults.competitive.error}</p>
+                  )}
+                  {researchResults.company && !researchResults.company.error && (
+                    <div className="space-y-1">
+                      <p className="text-xs font-medium text-primary">Company Intel</p>
+                      <div className="text-xs text-text whitespace-pre-wrap">{researchResults.company.content}</div>
+                      {researchResults.company.sources?.length > 0 && (
+                        <div className="mt-1 pt-1 border-t border-border">
+                          {researchResults.company.sources.map((s, i) => (
+                            <a key={i} href={s.url} target="_blank" rel="noopener noreferrer" className="block text-xs text-primary hover:underline truncate">{s.title || s.url}</a>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  {researchResults.competitive && !researchResults.competitive.error && (
+                    <div className="space-y-1">
+                      <p className="text-xs font-medium text-primary">Competitive Intel</p>
+                      <div className="text-xs text-text whitespace-pre-wrap">{researchResults.competitive.content}</div>
+                      {researchResults.competitive.sources?.length > 0 && (
+                        <div className="mt-1 pt-1 border-t border-border">
+                          {researchResults.competitive.sources.map((s, i) => (
+                            <a key={i} href={s.url} target="_blank" rel="noopener noreferrer" className="block text-xs text-primary hover:underline truncate">{s.title || s.url}</a>
                           ))}
                         </div>
                       )}
                     </div>
                   )}
                 </div>
-
-                {/* Competitive Intel */}
-                <div className="space-y-2">
-                  <p className="text-xs font-medium text-text-secondary uppercase">Competitive Intel</p>
-                  <div className="flex gap-2">
-                    <input
-                      value={productName}
-                      onChange={e => setProductName(e.target.value)}
-                      placeholder="Your product name"
-                      className="flex-1 bg-surface border border-border rounded-lg px-3 py-1.5 text-sm text-text focus:outline-none focus:border-primary"
-                    />
-                    <input
-                      value={competitors}
-                      onChange={e => setCompetitors(e.target.value)}
-                      placeholder="Competitors (optional)"
-                      className="flex-1 bg-surface border border-border rounded-lg px-3 py-1.5 text-sm text-text focus:outline-none focus:border-primary"
-                    />
-                    <button
-                      onClick={async () => {
-                        if (!productName) return
-                        setResearchLoading('competitive')
-                        try {
-                          const res = await researchCompetitive({ product_name: productName, competitors })
-                          setCompetitiveResults(res)
-                          setResearchIds(prev => [...prev, res.id])
-                        } catch (e) { setError(e.message) }
-                        setResearchLoading(null)
-                      }}
-                      disabled={!productName || researchLoading}
-                      className="px-3 py-1.5 bg-primary text-white rounded-lg text-xs font-medium hover:bg-primary-hover disabled:opacity-50 transition-colors whitespace-nowrap"
-                    >
-                      {researchLoading === 'competitive' ? 'Searching...' : 'Research'}
-                    </button>
-                  </div>
-                  {competitiveResults && (
-                    <div className="text-xs text-text bg-surface rounded-lg p-3 max-h-48 overflow-y-auto whitespace-pre-wrap">
-                      {competitiveResults.content}
-                      {competitiveResults.sources?.length > 0 && (
-                        <div className="mt-2 pt-2 border-t border-border">
-                          <p className="text-text-secondary font-medium">Sources:</p>
-                          {competitiveResults.sources.map((s, i) => (
-                            <a key={i} href={s.url} target="_blank" rel="noopener noreferrer" className="block text-primary hover:underline truncate">{s.title || s.url}</a>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-          </div>
+              )}
+            </div>
+          )}
 
           {/* Provider & Model Selection */}
           <div className="grid grid-cols-2 gap-4">
