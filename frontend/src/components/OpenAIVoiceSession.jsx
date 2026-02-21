@@ -13,6 +13,7 @@ export default function OpenAIVoiceSession({ token, sessionId, durationMinutes, 
   const audioRef = useRef(null)
   const mediaStreamRef = useRef(null)
   const hasGreeted = useRef(false)
+  const isSessionActiveRef = useRef(false)
 
   const addTranscriptEntry = useCallback((speaker, text) => {
     setTranscript(prev => [...prev, {
@@ -22,7 +23,78 @@ export default function OpenAIVoiceSession({ token, sessionId, durationMinutes, 
     }])
   }, [])
 
+  // Centralized cleanup function - reused by startSession, endSession, and unmount
+  const cleanupConnection = useCallback(() => {
+    console.log('[OpenAI] cleanupConnection called')
+
+    // Clear session lock first
+    isSessionActiveRef.current = false
+
+    // 1. Cancel any in-progress AI response first
+    if (dcRef.current?.readyState === 'open') {
+      try {
+        dcRef.current.send(JSON.stringify({ type: 'response.cancel' }))
+      } catch (e) {
+        // Ignore errors during cleanup
+      }
+    }
+
+    // 2. Stop all microphone tracks
+    if (mediaStreamRef.current) {
+      mediaStreamRef.current.getTracks().forEach(track => {
+        track.stop()
+        track.enabled = false
+      })
+      mediaStreamRef.current = null
+    }
+
+    // 3. Close data channel
+    if (dcRef.current) {
+      try {
+        dcRef.current.close()
+      } catch (e) {
+        // Ignore errors during cleanup
+      }
+      dcRef.current = null
+    }
+
+    // 4. Close peer connection and all its tracks
+    if (pcRef.current) {
+      try {
+        pcRef.current.getSenders().forEach(sender => {
+          if (sender.track) sender.track.stop()
+        })
+        pcRef.current.getReceivers().forEach(receiver => {
+          if (receiver.track) receiver.track.stop()
+        })
+        pcRef.current.close()
+      } catch (e) {
+        // Ignore errors during cleanup
+      }
+      pcRef.current = null
+    }
+
+    // 5. Stop audio playback - set srcObject to null BEFORE pause
+    if (audioRef.current) {
+      audioRef.current.srcObject = null
+      audioRef.current.pause()
+      audioRef.current = null
+    }
+
+    hasGreeted.current = false
+  }, [])
+
   const startSession = useCallback(async () => {
+    // CRITICAL: Prevent multiple simultaneous sessions
+    if (isSessionActiveRef.current) {
+      console.log('[OpenAI] Session already active, skipping')
+      return
+    }
+    isSessionActiveRef.current = true
+
+    // Clean up any orphaned resources (shouldn't exist, but safety)
+    cleanupConnection()
+
     try {
       // Get microphone first before creating peer connection
       const constraints = selectedDeviceId
@@ -165,83 +237,18 @@ ${systemPrompt}`
       await pc.setRemoteDescription({ type: 'answer', sdp: answerSdp })
 
     } catch (err) {
+      isSessionActiveRef.current = false  // Clear lock on error
       console.error('OpenAI Realtime error:', err)
       setError(err.message || 'Failed to connect')
       setAgentStatus('error')
     }
-  }, [token, persona, systemPrompt, selectedDeviceId, addTranscriptEntry])
+  }, [token, persona, systemPrompt, selectedDeviceId, addTranscriptEntry, cleanupConnection])
 
   const endSession = useCallback(() => {
-    console.log('[OpenAI] Ending session - cleaning up...')
-    hasGreeted.current = false
-
-    // 1. Cancel any in-progress AI response first
-    if (dcRef.current?.readyState === 'open') {
-      console.log('[OpenAI] Sending response.cancel')
-      try {
-        dcRef.current.send(JSON.stringify({ type: 'response.cancel' }))
-      } catch (e) {
-        console.warn('[OpenAI] Error sending response.cancel:', e)
-      }
-    }
-
-    // 2. Stop all microphone tracks
-    if (mediaStreamRef.current) {
-      console.log('[OpenAI] Stopping microphone tracks')
-      mediaStreamRef.current.getTracks().forEach(track => {
-        track.stop()
-        track.enabled = false
-      })
-      mediaStreamRef.current = null
-    }
-
-    // 3. Close data channel
-    if (dcRef.current) {
-      console.log('[OpenAI] Closing data channel')
-      try {
-        dcRef.current.close()
-      } catch (e) {
-        console.warn('[OpenAI] Error closing data channel:', e)
-      }
-      dcRef.current = null
-    }
-
-    // 4. Close peer connection - this should stop all media
-    if (pcRef.current) {
-      console.log('[OpenAI] Closing peer connection')
-      try {
-        // Stop all senders
-        pcRef.current.getSenders().forEach(sender => {
-          if (sender.track) {
-            sender.track.stop()
-          }
-        })
-        // Stop all receivers
-        pcRef.current.getReceivers().forEach(receiver => {
-          if (receiver.track) {
-            receiver.track.stop()
-          }
-        })
-        pcRef.current.close()
-      } catch (e) {
-        console.warn('[OpenAI] Error closing peer connection:', e)
-      }
-      pcRef.current = null
-    }
-
-    // 5. Stop audio playback
-    if (audioRef.current) {
-      console.log('[OpenAI] Stopping audio playback')
-      audioRef.current.pause()
-      audioRef.current.srcObject = null
-      audioRef.current.remove()
-      audioRef.current = null
-    }
-
-    // 6. Callback
-    console.log('[OpenAI] Cleanup complete, calling onEnd')
+    console.log('[OpenAI] Ending session')
+    cleanupConnection()
     onEnd(transcript)
-  }, [onEnd, transcript])
+  }, [cleanupConnection, onEnd, transcript])
 
   const handleMarkMoment = useCallback(async () => {
     if (!startTimeRef.current) return
@@ -259,49 +266,15 @@ ${systemPrompt}`
     }
   }, [sessionId, transcript])
 
-  // Start on mount
+  // Start on mount - only react to token changes, not function references
   useEffect(() => {
     if (token) {
       startSession()
     }
     return () => {
-      // Cleanup on unmount - thorough cleanup in correct order
-      console.log('[OpenAI] Unmounting - cleaning up')
-
-      // 1. Cancel any in-progress response
-      if (dcRef.current?.readyState === 'open') {
-        try { dcRef.current.send(JSON.stringify({ type: 'response.cancel' })) } catch (e) {}
-      }
-
-      // 2. Stop microphone
-      if (mediaStreamRef.current) {
-        mediaStreamRef.current.getTracks().forEach(track => {
-          track.stop()
-          track.enabled = false
-        })
-      }
-
-      // 3. Close data channel
-      if (dcRef.current) {
-        try { dcRef.current.close() } catch (e) {}
-      }
-
-      // 4. Close peer connection
-      if (pcRef.current) {
-        try {
-          pcRef.current.getSenders().forEach(s => s.track?.stop())
-          pcRef.current.getReceivers().forEach(r => r.track?.stop())
-          pcRef.current.close()
-        } catch (e) {}
-      }
-
-      // 5. Stop audio playback
-      if (audioRef.current) {
-        audioRef.current.pause()
-        audioRef.current.srcObject = null
-        audioRef.current.remove()
-      }
+      cleanupConnection()
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token])
 
   const statusColors = {
