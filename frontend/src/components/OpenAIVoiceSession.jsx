@@ -45,8 +45,11 @@ export default function OpenAIVoiceSession({ token, sessionId, durationMinutes, 
       mediaStreamRef.current = null
     }
 
-    // 3. Close data channel
+    // 3. Close data channel - null out handlers FIRST to stop events
     if (dcRef.current) {
+      dcRef.current.onmessage = null
+      dcRef.current.onerror = null
+      dcRef.current.onopen = null
       try {
         dcRef.current.close()
       } catch (e) {
@@ -55,8 +58,10 @@ export default function OpenAIVoiceSession({ token, sessionId, durationMinutes, 
       dcRef.current = null
     }
 
-    // 4. Close peer connection and all its tracks
+    // 4. Close peer connection - null out handlers FIRST
     if (pcRef.current) {
+      pcRef.current.ontrack = null
+      pcRef.current.onconnectionstatechange = null
       try {
         pcRef.current.getSenders().forEach(sender => {
           if (sender.track) sender.track.stop()
@@ -119,45 +124,14 @@ export default function OpenAIVoiceSession({ token, sessionId, durationMinutes, 
 
       dc.onopen = () => {
         console.log('[OpenAI] Data channel open')
-        // Don't send session.update here - wait for connection to stabilize
       }
 
-      // Wait for WebRTC connection to stabilize before sending session.update
-      // This is critical - sending config too early can cause it to be ignored
       pc.onconnectionstatechange = () => {
         console.log('[OpenAI] Connection state:', pc.connectionState)
 
         if (pc.connectionState === 'connected') {
-          if (hasGreeted.current) return // Prevent duplicate greetings
-          hasGreeted.current = true
-
           setAgentStatus('connected')
           startTimeRef.current = Date.now()
-
-          // Send session config with the roleplay instructions
-          // Prepend strong language instruction to prevent wrong language
-          const fullInstructions = `CRITICAL: You MUST respond ONLY in English. Never speak any other language.
-
-${systemPrompt}`
-
-          // Note: Do NOT include input_audio_format/output_audio_format
-          // WebRTC uses Opus codec automatically. Setting pcm16 is for WebSocket only.
-          const config = {
-            type: 'session.update',
-            session: {
-              modalities: ['text', 'audio'],
-              instructions: fullInstructions,
-              voice: 'ash',
-              turn_detection: { type: 'server_vad' },
-              temperature: 0.8,
-              input_audio_transcription: { model: 'whisper-1' },
-            }
-          }
-          console.log('[OpenAI] Sending session config with instructions:', fullInstructions.substring(0, 200) + '...')
-          dc.send(JSON.stringify(config))
-
-          // Wait for session.updated confirmation before triggering response
-          // The response.create will be sent when we receive session.updated event
         } else if (pc.connectionState === 'failed' || pc.connectionState === 'disconnected') {
           console.error('[OpenAI] Connection failed:', pc.connectionState)
           setError('WebRTC connection failed')
@@ -170,9 +144,31 @@ ${systemPrompt}`
         console.log('[OpenAI] Event:', event.type)
 
         switch (event.type) {
-          case 'session.created':
-            console.log('[OpenAI] Session created, waiting for our config to be applied...')
+          case 'session.created': {
+            // Data channel is guaranteed open since we received this message through it
+            // Send session config with roleplay instructions
+            if (hasGreeted.current) break
+            hasGreeted.current = true
+
+            const fullInstructions = `CRITICAL: You MUST respond ONLY in English. Never speak any other language.
+
+${systemPrompt}`
+
+            const config = {
+              type: 'session.update',
+              session: {
+                modalities: ['text', 'audio'],
+                instructions: fullInstructions,
+                voice: 'ash',
+                turn_detection: { type: 'server_vad' },
+                temperature: 0.8,
+                input_audio_transcription: { model: 'whisper-1' },
+              }
+            }
+            console.log('[OpenAI] Sending session config with instructions:', fullInstructions.substring(0, 200) + '...')
+            dc.send(JSON.stringify(config))
             break
+          }
           case 'session.updated':
             console.log('[OpenAI] Session config applied! Now triggering initial response...')
             // NOW it's safe to trigger the greeting
