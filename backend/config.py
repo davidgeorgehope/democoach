@@ -30,13 +30,12 @@ class Settings:
         {"id": "gpt-4o", "name": "GPT-4o", "provider": "OpenAI"},
     ]
 
-    # ElevenLabs TTS models (voice)
+    # ElevenLabs TTS models (voice) - English agents only support turbo/flash v2
     SUPPORTED_TTS: list = [
-        {"id": "eleven_turbo_v2_5", "name": "Turbo v2.5", "description": "Fast, low latency - best for conversations"},
+        {"id": "eleven_turbo_v2_5", "name": "Turbo v2.5", "description": "Best quality, low latency"},
         {"id": "eleven_flash_v2_5", "name": "Flash v2.5", "description": "Fastest, lowest latency"},
-        {"id": "eleven_turbo_v2", "name": "Turbo v2", "description": "Fast, good quality"},
-        {"id": "eleven_multilingual_v2", "name": "Multilingual v2", "description": "Best quality, 29 languages, higher latency"},
-        {"id": "eleven_monolingual_v1", "name": "Monolingual v1", "description": "English only, legacy"},
+        {"id": "eleven_turbo_v2", "name": "Turbo v2", "description": "Good quality, low latency"},
+        {"id": "eleven_flash_v2", "name": "Flash v2", "description": "Fast, very low latency"},
     ]
 
 

@@ -41,9 +41,13 @@ export default function Train() {
         const devices = await navigator.mediaDevices.enumerateDevices()
         const mics = devices.filter(d => d.kind === 'audioinput')
         setAudioDevices(mics)
-        // Select first device by default if none selected
+        // Select the "default" mic if available, otherwise first one
         if (mics.length > 0 && !selectedDeviceId) {
-          setSelectedDeviceId(mics[0].deviceId)
+          const defaultMic = mics.find(d =>
+            d.deviceId === 'default' ||
+            d.label.toLowerCase().includes('default')
+          )
+          setSelectedDeviceId(defaultMic?.deviceId || mics[0].deviceId)
         }
       } catch (e) {
         console.error('Could not enumerate audio devices:', e)
