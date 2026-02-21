@@ -23,12 +23,9 @@ export default function OpenAIVoiceSession({ token, sessionId, durationMinutes, 
     }])
   }, [])
 
-  // Centralized cleanup function - reused by startSession, endSession, and unmount
+  // Centralized cleanup function - reused by endSession and unmount
   const cleanupConnection = useCallback(() => {
     console.log('[OpenAI] cleanupConnection called')
-
-    // Clear session lock first
-    isSessionActiveRef.current = false
 
     // 1. Cancel any in-progress AI response first
     if (dcRef.current?.readyState === 'open') {
@@ -91,9 +88,6 @@ export default function OpenAIVoiceSession({ token, sessionId, durationMinutes, 
       return
     }
     isSessionActiveRef.current = true
-
-    // Clean up any orphaned resources (shouldn't exist, but safety)
-    cleanupConnection()
 
     try {
       // Get microphone first before creating peer connection
@@ -242,10 +236,11 @@ ${systemPrompt}`
       setError(err.message || 'Failed to connect')
       setAgentStatus('error')
     }
-  }, [token, persona, systemPrompt, selectedDeviceId, addTranscriptEntry, cleanupConnection])
+  }, [token, persona, systemPrompt, selectedDeviceId, addTranscriptEntry])
 
   const endSession = useCallback(() => {
     console.log('[OpenAI] Ending session')
+    isSessionActiveRef.current = false
     cleanupConnection()
     onEnd(transcript)
   }, [cleanupConnection, onEnd, transcript])
@@ -272,6 +267,7 @@ ${systemPrompt}`
       startSession()
     }
     return () => {
+      isSessionActiveRef.current = false
       cleanupConnection()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
