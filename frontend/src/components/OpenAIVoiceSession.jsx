@@ -13,7 +13,7 @@ export default function OpenAIVoiceSession({ token, sessionId, durationMinutes, 
   const audioRef = useRef(null)
   const mediaStreamRef = useRef(null)
   const hasGreeted = useRef(false)
-  const isSessionActiveRef = useRef(false)
+  const sessionGenRef = useRef(0)  // Incremented on each cleanup to invalidate in-flight sessions
 
   const addTranscriptEntry = useCallback((speaker, text) => {
     setTranscript(prev => [...prev, {
@@ -26,6 +26,9 @@ export default function OpenAIVoiceSession({ token, sessionId, durationMinutes, 
   // Centralized cleanup function - reused by endSession and unmount
   const cleanupConnection = useCallback(() => {
     console.log('[OpenAI] cleanupConnection called')
+
+    // Invalidate any in-flight startSession calls
+    sessionGenRef.current++
 
     // 1. Cancel any in-progress AI response first
     if (dcRef.current?.readyState === 'open') {
@@ -87,12 +90,10 @@ export default function OpenAIVoiceSession({ token, sessionId, durationMinutes, 
   }, [])
 
   const startSession = useCallback(async () => {
-    // CRITICAL: Prevent multiple simultaneous sessions
-    if (isSessionActiveRef.current) {
-      console.log('[OpenAI] Session already active, skipping')
-      return
-    }
-    isSessionActiveRef.current = true
+    // Capture current generation - if cleanup runs during our async gaps,
+    // sessionGenRef will increment and we know to bail out
+    const myGen = sessionGenRef.current
+    console.log('[OpenAI] startSession gen:', myGen)
 
     try {
       // Get microphone first before creating peer connection
@@ -100,6 +101,13 @@ export default function OpenAIVoiceSession({ token, sessionId, durationMinutes, 
         ? { audio: { deviceId: { exact: selectedDeviceId } } }
         : { audio: true }
       const ms = await navigator.mediaDevices.getUserMedia(constraints)
+
+      // Check if we were cancelled during getUserMedia
+      if (sessionGenRef.current !== myGen) {
+        console.log('[OpenAI] Session cancelled during getUserMedia, cleaning up')
+        ms.getTracks().forEach(t => t.stop())
+        return
+      }
       mediaStreamRef.current = ms
 
       // Create peer connection
@@ -146,7 +154,6 @@ export default function OpenAIVoiceSession({ token, sessionId, durationMinutes, 
         switch (event.type) {
           case 'session.created': {
             // Data channel is guaranteed open since we received this message through it
-            // Send session config with roleplay instructions
             if (hasGreeted.current) break
             hasGreeted.current = true
 
@@ -165,16 +172,13 @@ ${systemPrompt}`
                 input_audio_transcription: { model: 'whisper-1' },
               }
             }
-            console.log('[OpenAI] Sending session config with instructions:', fullInstructions.substring(0, 200) + '...')
+            console.log('[OpenAI] Sending session config')
             dc.send(JSON.stringify(config))
             break
           }
           case 'session.updated':
-            console.log('[OpenAI] Session config applied! Now triggering initial response...')
-            // NOW it's safe to trigger the greeting
-            dc.send(JSON.stringify({
-              type: 'response.create',
-            }))
+            console.log('[OpenAI] Session config applied! Triggering initial response...')
+            dc.send(JSON.stringify({ type: 'response.create' }))
             break
           case 'response.audio_transcript.done':
             addTranscriptEntry('agent', event.transcript)
@@ -207,6 +211,14 @@ ${systemPrompt}`
       const offer = await pc.createOffer()
       await pc.setLocalDescription(offer)
 
+      // Check if we were cancelled during offer creation
+      if (sessionGenRef.current !== myGen) {
+        console.log('[OpenAI] Session cancelled during offer, cleaning up')
+        pc.close()
+        ms.getTracks().forEach(t => t.stop())
+        return
+      }
+
       // Connect to OpenAI Realtime
       const baseUrl = 'https://api.openai.com/v1/realtime'
       const model = 'gpt-realtime'
@@ -224,10 +236,19 @@ ${systemPrompt}`
       }
 
       const answerSdp = await response.text()
+
+      // Check if we were cancelled during the fetch
+      if (sessionGenRef.current !== myGen) {
+        console.log('[OpenAI] Session cancelled during SDP exchange, cleaning up')
+        pc.close()
+        ms.getTracks().forEach(t => t.stop())
+        return
+      }
+
       await pc.setRemoteDescription({ type: 'answer', sdp: answerSdp })
 
     } catch (err) {
-      isSessionActiveRef.current = false  // Clear lock on error
+      if (err.name === 'AbortError') return  // Expected on cleanup
       console.error('OpenAI Realtime error:', err)
       setError(err.message || 'Failed to connect')
       setAgentStatus('error')
@@ -236,7 +257,6 @@ ${systemPrompt}`
 
   const endSession = useCallback(() => {
     console.log('[OpenAI] Ending session')
-    isSessionActiveRef.current = false
     cleanupConnection()
     onEnd(transcript)
   }, [cleanupConnection, onEnd, transcript])
@@ -263,7 +283,6 @@ ${systemPrompt}`
       startSession()
     }
     return () => {
-      isSessionActiveRef.current = false
       cleanupConnection()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
