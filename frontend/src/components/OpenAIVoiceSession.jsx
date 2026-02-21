@@ -97,9 +97,13 @@ export default function OpenAIVoiceSession({ token, sessionId, durationMinutes, 
 
     try {
       // Get microphone first before creating peer connection
-      const constraints = selectedDeviceId
-        ? { audio: { deviceId: { exact: selectedDeviceId } } }
-        : { audio: true }
+      const audioConstraints = {
+        echoCancellation: true,
+        noiseSuppression: true,
+        autoGainControl: true,
+        ...(selectedDeviceId ? { deviceId: { exact: selectedDeviceId } } : {}),
+      }
+      const constraints = { audio: audioConstraints }
       const ms = await navigator.mediaDevices.getUserMedia(constraints)
 
       // Check if we were cancelled during getUserMedia
@@ -167,7 +171,12 @@ ${systemPrompt}`
                 modalities: ['text', 'audio'],
                 instructions: fullInstructions,
                 voice: 'ash',
-                turn_detection: { type: 'server_vad' },
+                turn_detection: {
+                  type: 'server_vad',
+                  threshold: 0.6,
+                  prefix_padding_ms: 300,
+                  silence_duration_ms: 500,
+                },
                 temperature: 0.8,
                 input_audio_transcription: { model: 'whisper-1' },
               }
