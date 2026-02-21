@@ -1,0 +1,46 @@
+# Python caches & tooling
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.pyi
+.dmypy.json
+.mypy_cache/
+.pytest_cache/
+.coverage
+coverage/
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+env/
+myenv/
+
+# Environment files
+.env
+.env.*
+!.env.example
+!.env.production
+
+# Node / frontend
+node_modules/
+frontend/dist/
+*.tsbuildinfo
+
+# Build outputs
+dist/
+build/
+
+# Data & databases
+backend/data/*.db
+backend/data/*.sqlite*
+
+# OS / editor files
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*.log
+*.out

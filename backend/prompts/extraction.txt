@@ -1,0 +1,19 @@
+Analyze this sales demo / customer call transcript. Extract every moment where
+the customer or audience member:
+- Interrupted the presenter
+- Challenged a claim or asked for proof
+- Asked for something the presenter didn't have prepared
+- Pulled the conversation in a different direction than the presenter intended
+- Expressed skepticism, pushback, or "but what about..."
+
+For each moment, return a JSON array of objects:
+{
+  "objection_text": "The customer's exact words or close paraphrase",
+  "trigger_context": "What was being discussed when this happened",
+  "category": "technical_depth | competitive | credibility | commercial | scope_creep | recovery",
+  "difficulty": 3,
+  "reasoning": "Brief explanation of why this is a useful objection to practice"
+}
+
+Only include substantive objections. Skip pleasantries, agreements, and
+clarifying questions that don't challenge the presenter.
