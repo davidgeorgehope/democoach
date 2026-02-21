@@ -4,7 +4,7 @@ from fastapi.staticfiles import StaticFiles
 from contextlib import asynccontextmanager
 import os
 
-from db import init_db, seed_data
+from db import init_db, seed_data, cleanup_stale_sessions
 from services.agent_service import ensure_agent_exists
 from routers import agent, personas, objections, sessions, transcripts, kb
 
@@ -14,6 +14,7 @@ async def lifespan(app: FastAPI):
     # Startup
     init_db()
     seed_data()
+    cleanup_stale_sessions()
     await ensure_agent_exists()
     yield
     # Shutdown

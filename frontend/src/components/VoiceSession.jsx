@@ -4,7 +4,7 @@ import LiveTranscript from './LiveTranscript'
 import SessionTimer from './SessionTimer'
 import { markMoment } from '../api'
 
-export default function VoiceSession({ signedUrl, sessionId, durationMinutes, persona, onEnd }) {
+export default function VoiceSession({ signedUrl, sessionId, durationMinutes, persona, onEnd, selectedDeviceId }) {
   const [transcript, setTranscript] = useState([])
   const [agentStatus, setAgentStatus] = useState('idle')
   const [started, setStarted] = useState(false)
@@ -39,12 +39,21 @@ export default function VoiceSession({ signedUrl, sessionId, durationMinutes, pe
   const startConversation = useCallback(async () => {
     setError(null)
     try {
+      // Request mic permission first
       await navigator.mediaDevices.getUserMedia({ audio: true })
-      await conversation.startSession({ signedUrl })
+
+      // Start session with the selected input device
+      const sessionOptions = { signedUrl }
+      if (selectedDeviceId) {
+        sessionOptions.inputDeviceId = selectedDeviceId
+        console.log('Starting session with device:', selectedDeviceId)
+      }
+      await conversation.startSession(sessionOptions)
     } catch (err) {
+      console.error('Start session error:', err)
       setError(err.message || 'Failed to start — check microphone permissions')
     }
-  }, [conversation, signedUrl])
+  }, [conversation, signedUrl, selectedDeviceId])
 
   const endConversation = useCallback(async () => {
     try {

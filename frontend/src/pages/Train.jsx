@@ -13,6 +13,28 @@ export default function Train() {
   const [duration, setDuration] = useState(location.state?.durationMinutes || 15)
   const [sessionData, setSessionData] = useState(null)
   const [error, setError] = useState(null)
+  const [audioDevices, setAudioDevices] = useState([])
+  const [selectedDeviceId, setSelectedDeviceId] = useState('')
+
+  // Load available microphones
+  useEffect(() => {
+    async function loadDevices() {
+      try {
+        // Request permission first to get device labels
+        await navigator.mediaDevices.getUserMedia({ audio: true })
+        const devices = await navigator.mediaDevices.enumerateDevices()
+        const mics = devices.filter(d => d.kind === 'audioinput')
+        setAudioDevices(mics)
+        // Select first device by default if none selected
+        if (mics.length > 0 && !selectedDeviceId) {
+          setSelectedDeviceId(mics[0].deviceId)
+        }
+      } catch (e) {
+        console.error('Could not enumerate audio devices:', e)
+      }
+    }
+    loadDevices()
+  }, [])
 
   useEffect(() => {
     listPersonas().then(p => {
@@ -111,7 +133,24 @@ export default function Train() {
             />
           </div>
 
-          <div className="flex items-end gap-4">
+          <div className="flex items-end gap-4 flex-wrap">
+            <div>
+              <label className="block text-sm text-text-secondary mb-1">Microphone</label>
+              <select
+                value={selectedDeviceId}
+                onChange={e => setSelectedDeviceId(e.target.value)}
+                className="bg-bg border border-border rounded-lg px-3 py-2 text-sm text-text focus:outline-none focus:border-primary min-w-[200px]"
+              >
+                {audioDevices.map(device => (
+                  <option key={device.deviceId} value={device.deviceId}>
+                    {device.label || `Microphone ${device.deviceId.slice(0, 8)}`}
+                  </option>
+                ))}
+                {audioDevices.length === 0 && (
+                  <option value="">No microphones found</option>
+                )}
+              </select>
+            </div>
             <div>
               <label className="block text-sm text-text-secondary mb-1">Duration</label>
               <select
@@ -149,6 +188,7 @@ export default function Train() {
           durationMinutes={sessionData.duration_minutes || duration}
           persona={sessionData.persona}
           onEnd={handleEnd}
+          selectedDeviceId={selectedDeviceId}
         />
       </div>
     )

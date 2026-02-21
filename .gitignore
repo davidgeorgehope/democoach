@@ -44,3 +44,7 @@ Thumbs.db
 *.swp
 *.log
 *.out
+
+# Runtime files
+.pids/
+logs/

@@ -1,3 +1,4 @@
+from __future__ import annotations
 import sqlite3
 import os
 from pathlib import Path
@@ -174,3 +175,19 @@ def set_config(key: str, value: str):
     conn.execute("INSERT OR REPLACE INTO config (key, value) VALUES (?, ?)", (key, value))
     conn.commit()
     conn.close()
+
+
+def cleanup_stale_sessions():
+    """Mark any 'active' sessions as ended on startup (they were orphaned)."""
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        UPDATE sessions
+        SET status = 'abandoned', ended_at = CURRENT_TIMESTAMP
+        WHERE status = 'active'
+    """)
+    affected = cursor.rowcount
+    conn.commit()
+    conn.close()
+    if affected > 0:
+        print(f"Cleaned up {affected} orphaned session(s)")
