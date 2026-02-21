@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { listPersonas, startSession, endSession, getModels, researchCompany, researchCompetitive } from '../api'
+import { listPersonas, startSession, endSession, getModels, researchCompany, researchCompetitive, getOpenAIRealtimeToken } from '../api'
 import VoiceSession from '../components/VoiceSession'
+import OpenAIVoiceSession from '../components/OpenAIVoiceSession'
 
 export default function Train() {
   const location = useLocation()
@@ -16,7 +17,9 @@ export default function Train() {
   const [audioDevices, setAudioDevices] = useState([])
   const [selectedDeviceId, setSelectedDeviceId] = useState('')
 
-  // Model selection
+  // Provider and model selection
+  const [providers, setProviders] = useState([])
+  const [selectedProvider, setSelectedProvider] = useState('elevenlabs')
   const [llmModels, setLlmModels] = useState([])
   const [ttsModels, setTtsModels] = useState([])
   const [selectedLlm, setSelectedLlm] = useState('')
@@ -36,8 +39,10 @@ export default function Train() {
   // Load available models
   useEffect(() => {
     getModels().then(data => {
+      setProviders(data.providers || [])
       setLlmModels(data.llm_models || [])
       setTtsModels(data.tts_models || [])
+      setSelectedProvider(data.defaults?.provider || 'elevenlabs')
       setSelectedLlm(data.defaults?.llm || '')
       setSelectedTts(data.defaults?.tts || '')
     }).catch(e => console.error('Failed to load models:', e))
@@ -85,16 +90,60 @@ export default function Train() {
     if (!personaId) return
     setPhase('connecting')
     setError(null)
+
+    const persona = personas.find(p => p.id === personaId)
+
     try {
-      const data = await startSession({
-        persona_id: personaId,
-        demo_context: demoContext,
-        duration_minutes: duration,
-        llm_model: selectedLlm || undefined,
-        tts_model: selectedTts || undefined,
-        research_ids: researchIds.length > 0 ? researchIds : undefined,
-      })
-      setSessionData(data)
+      if (selectedProvider === 'openai-realtime') {
+        // OpenAI Realtime - get ephemeral token
+        const tokenData = await getOpenAIRealtimeToken()
+
+        // Build system prompt for the persona - be very explicit about the role
+        const rolePrompt = persona.type === 'customer'
+          ? `IMPORTANT: You are ROLEPLAYING as ${persona.name}, a skeptical potential customer evaluating a software demo. ${persona.description}.
+
+YOUR ROLE: You are the CUSTOMER being pitched to. The human user is a Sales Engineer giving YOU a demo.
+
+BEHAVIOR:
+- Act skeptical and ask tough questions
+- Raise objections about pricing, competitors, complexity
+- Never break character - you are NOT an AI assistant
+- Never offer to help - YOU are the one being sold to
+- Speak naturally like a busy executive would
+
+Start by introducing yourself as ${persona.name} and ask what they're going to show you today.`
+          : `IMPORTANT: You are ROLEPLAYING as ${persona.name}, a senior interviewer on a panel evaluating a Sales Engineer candidate. ${persona.description}.
+
+YOUR ROLE: You are the INTERVIEWER. The human user is the CANDIDATE being interviewed.
+
+BEHAVIOR:
+- Ask challenging technical and situational questions
+- Probe for depth of knowledge
+- Never break character - you are NOT an AI assistant
+- You are evaluating THEM, not helping them
+
+Start by introducing yourself as ${persona.name} and ask them to begin their demo.`
+
+        setSessionData({
+          provider: 'openai-realtime',
+          token: tokenData.token,
+          persona,
+          systemPrompt: rolePrompt,
+          duration_minutes: duration,
+          session_id: Date.now(), // temporary ID for marking moments
+        })
+      } else {
+        // ElevenLabs - use existing flow
+        const data = await startSession({
+          persona_id: personaId,
+          demo_context: demoContext,
+          duration_minutes: duration,
+          llm_model: selectedLlm || undefined,
+          tts_model: selectedTts || undefined,
+          research_ids: researchIds.length > 0 ? researchIds : undefined,
+        })
+        setSessionData({ ...data, provider: 'elevenlabs' })
+      }
       setPhase('active')
     } catch (e) {
       setError(e.message)
@@ -262,36 +311,43 @@ export default function Train() {
             )}
           </div>
 
-          {/* Model Selection */}
+          {/* Provider & Model Selection */}
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm text-text-secondary mb-1">LLM (Brain)</label>
+              <label className="block text-sm text-text-secondary mb-1">Voice Provider</label>
               <select
-                value={selectedLlm}
-                onChange={e => setSelectedLlm(e.target.value)}
+                value={selectedProvider}
+                onChange={e => setSelectedProvider(e.target.value)}
                 className="w-full bg-bg border border-border rounded-lg px-3 py-2 text-sm text-text focus:outline-none focus:border-primary"
               >
-                {llmModels.map(m => (
-                  <option key={m.id} value={m.id}>
-                    {m.name} ({m.provider})
+                {providers.map(p => (
+                  <option key={p.id} value={p.id}>
+                    {p.name}
                   </option>
                 ))}
               </select>
             </div>
-            <div>
-              <label className="block text-sm text-text-secondary mb-1">TTS (Voice)</label>
-              <select
-                value={selectedTts}
-                onChange={e => setSelectedTts(e.target.value)}
-                className="w-full bg-bg border border-border rounded-lg px-3 py-2 text-sm text-text focus:outline-none focus:border-primary"
-              >
-                {ttsModels.map(m => (
-                  <option key={m.id} value={m.id}>
-                    {m.name}
-                  </option>
-                ))}
-              </select>
-            </div>
+            {selectedProvider === 'elevenlabs' && (
+              <div>
+                <label className="block text-sm text-text-secondary mb-1">LLM (Brain)</label>
+                <select
+                  value={selectedLlm}
+                  onChange={e => setSelectedLlm(e.target.value)}
+                  className="w-full bg-bg border border-border rounded-lg px-3 py-2 text-sm text-text focus:outline-none focus:border-primary"
+                >
+                  {llmModels.map(m => (
+                    <option key={m.id} value={m.id}>
+                      {m.name} ({m.provider})
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+            {selectedProvider === 'openai-realtime' && (
+              <div className="flex items-end">
+                <p className="text-sm text-text-secondary">Uses GPT-4o Realtime natively</p>
+              </div>
+            )}
           </div>
 
           <div className="flex items-end gap-4 flex-wrap">
@@ -343,14 +399,26 @@ export default function Train() {
   if (phase === 'active' && sessionData) {
     return (
       <div className="h-[calc(100vh-3rem)]">
-        <VoiceSession
-          signedUrl={sessionData.signed_url}
-          sessionId={sessionData.session_id}
-          durationMinutes={sessionData.duration_minutes || duration}
-          persona={sessionData.persona}
-          onEnd={handleEnd}
-          selectedDeviceId={selectedDeviceId}
-        />
+        {sessionData.provider === 'openai-realtime' ? (
+          <OpenAIVoiceSession
+            token={sessionData.token}
+            sessionId={sessionData.session_id}
+            durationMinutes={sessionData.duration_minutes || duration}
+            persona={sessionData.persona}
+            systemPrompt={sessionData.systemPrompt}
+            onEnd={handleEnd}
+            selectedDeviceId={selectedDeviceId}
+          />
+        ) : (
+          <VoiceSession
+            signedUrl={sessionData.signed_url}
+            sessionId={sessionData.session_id}
+            durationMinutes={sessionData.duration_minutes || duration}
+            persona={sessionData.persona}
+            onEnd={handleEnd}
+            selectedDeviceId={selectedDeviceId}
+          />
+        )}
       </div>
     )
   }

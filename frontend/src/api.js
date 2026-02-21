@@ -26,6 +26,7 @@ async function request(path, options = {}) {
 export const getAgentStatus = () => request('/agent/status')
 export const getAgentToken = () => request('/agent/token', { method: 'POST' })
 export const getModels = () => request('/agent/models')
+export const getOpenAIRealtimeToken = () => request('/agent/openai-token', { method: 'POST' })
 
 // Personas
 export const listPersonas = () => request('/personas')

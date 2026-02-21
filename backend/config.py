@@ -10,11 +10,18 @@ class Settings:
     OPENAI_API_KEY: str = os.getenv("OPENAI_API_KEY", "")
     GOOGLE_AI_API_KEY: str = os.getenv("GOOGLE_AI_API_KEY", "")
     DATABASE_PATH: str = os.getenv("DATABASE_PATH", "data/reframe.db")
-    DEFAULT_LLM: str = "gemini-2.0-flash-001"
+    DEFAULT_LLM: str = "gemini-2.5-flash-preview-04-17"
     AGENT_TEMPERATURE: float = 0.8
     TTS_MODEL: str = "eleven_turbo_v2_5"
     DEFAULT_CUSTOMER_VOICE: str = "JBFqnCBsd6RMkjVDRZzb"  # George
     DEFAULT_PANELIST_VOICE: str = "IKne3meq5aSn9XLyUdCD"  # Charlie
+
+    # Voice providers
+    SUPPORTED_PROVIDERS: list = [
+        {"id": "elevenlabs", "name": "ElevenLabs", "description": "High quality voices, multiple LLM options"},
+        {"id": "openai-realtime", "name": "OpenAI Realtime", "description": "Low latency, native GPT-4o"},
+    ]
+    DEFAULT_PROVIDER: str = "elevenlabs"
 
     # ElevenLabs supported LLM models (brain)
     SUPPORTED_LLMS: list = [

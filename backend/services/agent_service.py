@@ -78,7 +78,6 @@ async def update_agent_for_session(prompt: str, voice_id: str, llm_model: str = 
         raise ValueError("No agent configured. Check ElevenLabs API key.")
 
     llm_model = llm_model or settings.DEFAULT_LLM
-    tts_model = tts_model or settings.TTS_MODEL
 
     async with httpx.AsyncClient() as client:
         resp = await client.patch(
@@ -96,7 +95,6 @@ async def update_agent_for_session(prompt: str, voice_id: str, llm_model: str = 
                     },
                     "tts": {
                         "voice_id": voice_id,
-                        "model_id": tts_model,
                     },
                 },
             },
