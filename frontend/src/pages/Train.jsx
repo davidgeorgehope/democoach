@@ -116,33 +116,18 @@ export default function Train() {
 
         <div className="bg-surface rounded-lg p-6 border border-border space-y-4">
           <div>
-            <label className="block text-sm text-text-secondary mb-2">Select Persona</label>
-            <div className="grid grid-cols-2 gap-3">
+            <label className="block text-sm text-text-secondary mb-1">Select Persona</label>
+            <select
+              value={personaId || ''}
+              onChange={e => setPersonaId(e.target.value)}
+              className="w-full bg-bg border border-border rounded-lg px-3 py-2 text-sm text-text focus:outline-none focus:border-primary"
+            >
               {personas.map(p => (
-                <button
-                  key={p.id}
-                  onClick={() => setPersonaId(p.id)}
-                  className={`text-left p-3 rounded-lg border transition-colors ${
-                    personaId === p.id
-                      ? 'border-primary bg-primary/10'
-                      : 'border-border hover:border-text-secondary'
-                  }`}
-                >
-                  <div className="flex items-center gap-2">
-                    <div
-                      className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold"
-                      style={{ backgroundColor: p.avatar_color }}
-                    >
-                      {p.name[0]}
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium">{p.name}</p>
-                      <p className="text-xs text-text-secondary capitalize">{p.type}</p>
-                    </div>
-                  </div>
-                </button>
+                <option key={p.id} value={p.id}>
+                  {p.name} ({p.type})
+                </option>
               ))}
-            </div>
+            </select>
           </div>
 
           <div>

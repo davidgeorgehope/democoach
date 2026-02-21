@@ -41,21 +41,17 @@ export default function Dashboard() {
           {/* Persona select */}
           <div>
             <label className="block text-sm text-text-secondary mb-1">Persona</label>
-            <div className="flex gap-2 flex-wrap">
+            <select
+              value={selectedPersona?.id || ''}
+              onChange={e => setSelectedPersona(personas.find(p => p.id === e.target.value))}
+              className="bg-bg border border-border rounded-lg px-3 py-2 text-sm text-text focus:outline-none focus:border-primary"
+            >
               {personas.map(p => (
-                <button
-                  key={p.id}
-                  onClick={() => setSelectedPersona(p)}
-                  className={`px-3 py-1.5 rounded-lg text-sm border transition-colors ${
-                    selectedPersona?.id === p.id
-                      ? 'border-primary bg-primary/10 text-primary'
-                      : 'border-border text-text-secondary hover:border-text-secondary'
-                  }`}
-                >
+                <option key={p.id} value={p.id}>
                   {p.name} ({p.type})
-                </button>
+                </option>
               ))}
-            </div>
+            </select>
           </div>
 
           {/* Demo context */}
@@ -64,7 +60,7 @@ export default function Dashboard() {
             <textarea
               value={demoContext}
               onChange={e => setDemoContext(e.target.value)}
-              placeholder="What will you be demoing? e.g., 'Grafana Cloud observability platform — logs, metrics, traces'"
+              placeholder="What will you be demoing? e.g., 'Cloud platform — key features and workflows'"
               className="w-full bg-bg border border-border rounded-lg px-3 py-2 text-sm text-text placeholder-text-secondary/50 resize-none h-20 focus:outline-none focus:border-primary"
             />
           </div>
