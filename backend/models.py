@@ -93,6 +93,8 @@ class SessionStartRequest(BaseModel):
     persona_id: int
     demo_context: Optional[str] = ""
     duration_minutes: Optional[int] = 15
+    llm_model: Optional[str] = None
+    tts_model: Optional[str] = None
 
 
 class SessionMarkRequest(BaseModel):

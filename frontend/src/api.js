@@ -25,6 +25,7 @@ async function request(path, options = {}) {
 // Agent
 export const getAgentStatus = () => request('/agent/status')
 export const getAgentToken = () => request('/agent/token', { method: 'POST' })
+export const getModels = () => request('/agent/models')
 
 // Personas
 export const listPersonas = () => request('/personas')

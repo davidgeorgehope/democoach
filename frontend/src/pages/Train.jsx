@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { listPersonas, startSession, endSession } from '../api'
+import { listPersonas, startSession, endSession, getModels } from '../api'
 import VoiceSession from '../components/VoiceSession'
 
 export default function Train() {
@@ -15,6 +15,22 @@ export default function Train() {
   const [error, setError] = useState(null)
   const [audioDevices, setAudioDevices] = useState([])
   const [selectedDeviceId, setSelectedDeviceId] = useState('')
+
+  // Model selection
+  const [llmModels, setLlmModels] = useState([])
+  const [ttsModels, setTtsModels] = useState([])
+  const [selectedLlm, setSelectedLlm] = useState('')
+  const [selectedTts, setSelectedTts] = useState('')
+
+  // Load available models
+  useEffect(() => {
+    getModels().then(data => {
+      setLlmModels(data.llm_models || [])
+      setTtsModels(data.tts_models || [])
+      setSelectedLlm(data.defaults?.llm || '')
+      setSelectedTts(data.defaults?.tts || '')
+    }).catch(e => console.error('Failed to load models:', e))
+  }, [])
 
   // Load available microphones
   useEffect(() => {
@@ -59,6 +75,8 @@ export default function Train() {
         persona_id: personaId,
         demo_context: demoContext,
         duration_minutes: duration,
+        llm_model: selectedLlm || undefined,
+        tts_model: selectedTts || undefined,
       })
       setSessionData(data)
       setPhase('active')
@@ -131,6 +149,38 @@ export default function Train() {
               placeholder="What will you be presenting?"
               className="w-full bg-bg border border-border rounded-lg px-3 py-2 text-sm text-text placeholder-text-secondary/50 resize-none h-24 focus:outline-none focus:border-primary"
             />
+          </div>
+
+          {/* Model Selection */}
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm text-text-secondary mb-1">LLM (Brain)</label>
+              <select
+                value={selectedLlm}
+                onChange={e => setSelectedLlm(e.target.value)}
+                className="w-full bg-bg border border-border rounded-lg px-3 py-2 text-sm text-text focus:outline-none focus:border-primary"
+              >
+                {llmModels.map(m => (
+                  <option key={m.id} value={m.id}>
+                    {m.name} ({m.provider})
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm text-text-secondary mb-1">TTS (Voice)</label>
+              <select
+                value={selectedTts}
+                onChange={e => setSelectedTts(e.target.value)}
+                className="w-full bg-bg border border-border rounded-lg px-3 py-2 text-sm text-text focus:outline-none focus:border-primary"
+              >
+                {ttsModels.map(m => (
+                  <option key={m.id} value={m.id}>
+                    {m.name}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
 
           <div className="flex items-end gap-4 flex-wrap">

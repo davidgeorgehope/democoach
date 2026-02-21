@@ -71,11 +71,14 @@ def get_agent_id():
     return get_config("agent_id")
 
 
-async def update_agent_for_session(prompt: str, voice_id: str):
-    """Update the agent's prompt and voice for a specific session."""
+async def update_agent_for_session(prompt: str, voice_id: str, llm_model: str = None, tts_model: str = None):
+    """Update the agent's prompt, voice, LLM, and TTS model for a specific session."""
     agent_id = get_agent_id()
     if not agent_id:
         raise ValueError("No agent configured. Check ElevenLabs API key.")
+
+    llm_model = llm_model or settings.DEFAULT_LLM
+    tts_model = tts_model or settings.TTS_MODEL
 
     async with httpx.AsyncClient() as client:
         resp = await client.patch(
@@ -86,11 +89,14 @@ async def update_agent_for_session(prompt: str, voice_id: str):
                     "agent": {
                         "prompt": {
                             "prompt": prompt,
+                            "llm": llm_model,
+                            "temperature": settings.AGENT_TEMPERATURE,
                         },
                         "language": "en",
                     },
                     "tts": {
                         "voice_id": voice_id,
+                        "model_id": tts_model,
                     },
                 },
             },

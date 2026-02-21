@@ -21,7 +21,7 @@ async def start_session(data: SessionStartRequest):
 
     # Update agent with session-specific config
     try:
-        await update_agent_for_session(prompt, persona["voice_id"])
+        await update_agent_for_session(prompt, persona["voice_id"], data.llm_model, data.tts_model)
     except Exception as e:
         conn.close()
         raise HTTPException(status_code=500, detail=f"Failed to configure agent: {e}")
