@@ -13,6 +13,7 @@ class PersonaCreate(BaseModel):
     voice_id: str
     voice_name: Optional[str] = None
     avatar_color: Optional[str] = "#F46800"
+    tags: Optional[str] = None
 
 
 class PersonaUpdate(BaseModel):
@@ -23,6 +24,7 @@ class PersonaUpdate(BaseModel):
     voice_id: Optional[str] = None
     voice_name: Optional[str] = None
     avatar_color: Optional[str] = None
+    tags: Optional[str] = None
 
 
 class Persona(BaseModel):
@@ -34,6 +36,7 @@ class Persona(BaseModel):
     voice_id: str
     voice_name: Optional[str] = None
     avatar_color: str = "#F46800"
+    tags: Optional[str] = None
     is_default: bool = False
     created_at: Optional[str] = None
     updated_at: Optional[str] = None
@@ -95,6 +98,7 @@ class SessionStartRequest(BaseModel):
     duration_minutes: Optional[int] = 15
     llm_model: Optional[str] = None
     tts_model: Optional[str] = None
+    research_ids: Optional[List[int]] = None
 
 
 class SessionMarkRequest(BaseModel):

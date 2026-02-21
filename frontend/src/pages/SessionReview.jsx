@@ -1,7 +1,30 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { getSession, updateSession } from '../api'
+import { getSession, updateSession, evaluateSession, getSessionReport } from '../api'
 import RatingInput from '../components/RatingInput'
+
+const SCORE_LABELS = {
+  objection_handling: 'Objection Handling',
+  technical_accuracy: 'Technical Accuracy',
+  storytelling_flow: 'Storytelling & Flow',
+  confidence_pace: 'Confidence & Pace',
+  discovery_listening: 'Discovery & Listening',
+  recovery: 'Recovery',
+}
+
+function scoreColor(score) {
+  if (score >= 8) return 'bg-success'
+  if (score >= 6) return 'bg-primary'
+  if (score >= 4) return 'bg-warning'
+  return 'bg-error'
+}
+
+function scoreBadgeColor(score) {
+  if (score >= 8) return 'text-success border-success'
+  if (score >= 6) return 'text-primary border-primary'
+  if (score >= 4) return 'text-warning border-warning'
+  return 'text-error border-error'
+}
 
 export default function SessionReview() {
   const { id } = useParams()
@@ -12,6 +35,9 @@ export default function SessionReview() {
   const [notes, setNotes] = useState('')
   const [saving, setSaving] = useState(false)
   const [transcript, setTranscript] = useState([])
+  const [report, setReport] = useState(null)
+  const [evaluating, setEvaluating] = useState(false)
+  const [evalError, setEvalError] = useState(null)
 
   useEffect(() => {
     getSession(id).then(data => {
@@ -19,7 +45,6 @@ export default function SessionReview() {
       setEvents(data.events || [])
       setRating(data.session.overall_rating || 0)
       setNotes(data.session.notes || '')
-      // Parse transcript JSON if available
       if (data.session.transcript_json) {
         try {
           const parsed = JSON.parse(data.session.transcript_json)
@@ -28,12 +53,28 @@ export default function SessionReview() {
         } catch (e) {}
       }
     })
+    // Try to load existing report
+    getSessionReport(id).then(data => {
+      setReport(data.report)
+    }).catch(() => {})
   }, [id])
 
   const handleSave = async () => {
     setSaving(true)
     await updateSession(id, { overall_rating: rating, notes })
     setSaving(false)
+  }
+
+  const handleEvaluate = async () => {
+    setEvaluating(true)
+    setEvalError(null)
+    try {
+      const data = await evaluateSession(id)
+      setReport(data.report)
+    } catch (e) {
+      setEvalError(e.message)
+    }
+    setEvaluating(false)
   }
 
   if (!session) {
@@ -78,10 +119,147 @@ export default function SessionReview() {
         </div>
       </div>
 
+      {/* AI Coaching Report */}
+      {report ? (
+        <div className="space-y-4">
+          {/* Overall Score */}
+          <div className="bg-surface rounded-lg p-6 border border-border flex items-center gap-6">
+            <div className={`w-20 h-20 rounded-full border-4 flex items-center justify-center ${scoreBadgeColor(report.overall_score)}`}>
+              <span className="text-3xl font-bold">{report.overall_score}</span>
+            </div>
+            <div className="flex-1">
+              <h2 className="text-lg font-semibold mb-1">AI Coaching Score</h2>
+              <p className="text-sm text-text-secondary">Evaluated by {report.model_used}</p>
+            </div>
+          </div>
+
+          {/* Category Scores */}
+          <div className="bg-surface rounded-lg p-4 border border-border">
+            <h3 className="text-sm font-semibold mb-3">Category Scores</h3>
+            <div className="space-y-2">
+              {Object.entries(SCORE_LABELS).map(([key, label]) => {
+                const score = report.scores?.[key] || 0
+                return (
+                  <div key={key} className="flex items-center gap-3">
+                    <span className="text-xs text-text-secondary w-36 shrink-0">{label}</span>
+                    <div className="flex-1 h-3 bg-bg rounded-full overflow-hidden">
+                      <div
+                        className={`h-full rounded-full transition-all ${scoreColor(score)}`}
+                        style={{ width: `${score * 10}%` }}
+                      />
+                    </div>
+                    <span className="text-sm font-medium w-6 text-right">{score}</span>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+
+          {/* Summary */}
+          <div className="bg-surface rounded-lg p-4 border border-border">
+            <h3 className="text-sm font-semibold mb-2">Summary</h3>
+            <p className="text-sm text-text-secondary whitespace-pre-wrap">{report.summary}</p>
+          </div>
+
+          {/* Strengths */}
+          {report.strengths?.length > 0 && (
+            <div className="bg-surface rounded-lg p-4 border border-success/30">
+              <h3 className="text-sm font-semibold mb-2 text-success">Strengths</h3>
+              <div className="space-y-2">
+                {report.strengths.map((s, i) => (
+                  <div key={i} className="flex items-start gap-2 text-sm">
+                    <span className="text-success shrink-0 mt-0.5">+</span>
+                    <span className="text-text-secondary">{s}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Improvements */}
+          {report.improvements?.length > 0 && (
+            <div className="bg-surface rounded-lg p-4 border border-warning/30">
+              <h3 className="text-sm font-semibold mb-2 text-warning">Areas to Improve</h3>
+              <div className="space-y-2">
+                {report.improvements.map((s, i) => (
+                  <div key={i} className="flex items-start gap-2 text-sm">
+                    <span className="text-warning shrink-0 mt-0.5">!</span>
+                    <span className="text-text-secondary">{s}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Key Moments */}
+          {report.moments?.length > 0 && (
+            <div className="bg-surface rounded-lg p-4 border border-border">
+              <h3 className="text-sm font-semibold mb-3">Key Moments</h3>
+              <div className="space-y-4">
+                {report.moments.map((m, i) => (
+                  <div key={i} className="border-l-2 border-primary pl-3 space-y-1">
+                    <p className="text-xs text-text-secondary">{m.timestamp}</p>
+                    <p className="text-sm italic text-text">"{m.quote}"</p>
+                    <p className="text-sm text-text-secondary">{m.analysis}</p>
+                    <details className="text-sm">
+                      <summary className="text-primary cursor-pointer text-xs">Suggested response</summary>
+                      <p className="mt-1 text-text-secondary bg-bg rounded p-2 text-xs">{m.suggested_response}</p>
+                    </details>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* KB Accuracy Flags */}
+          {report.kb_flags?.length > 0 && (
+            <div className="bg-surface rounded-lg p-4 border border-error/30">
+              <h3 className="text-sm font-semibold mb-2 text-error">Accuracy Flags</h3>
+              <p className="text-xs text-text-secondary mb-3">Statements that may contradict product documentation</p>
+              <div className="space-y-3">
+                {report.kb_flags.map((f, i) => (
+                  <div key={i} className="bg-bg rounded-lg p-3 space-y-1">
+                    <p className="text-sm"><span className="text-error font-medium">Said:</span> "{f.quote}"</p>
+                    <p className="text-sm"><span className="text-success font-medium">Docs say:</span> {f.contradiction}</p>
+                    <p className="text-xs text-text-secondary">Source: {f.kb_source}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      ) : (
+        <div className="bg-surface rounded-lg p-6 border border-border text-center space-y-3">
+          {evaluating ? (
+            <>
+              <div className="inline-block w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+              <p className="text-sm text-text-secondary">Generating coaching report with Claude Opus... This may take 10-20 seconds.</p>
+            </>
+          ) : (
+            <>
+              <p className="text-sm text-text-secondary">No coaching report yet for this session.</p>
+              {evalError && (
+                <p className="text-sm text-error">{evalError}</p>
+              )}
+              <button
+                onClick={handleEvaluate}
+                disabled={!session.transcript_json}
+                className="px-6 py-2 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary-hover disabled:opacity-50 transition-colors"
+              >
+                Generate Coaching Report
+              </button>
+              {!session.transcript_json && (
+                <p className="text-xs text-text-secondary">Transcript required for evaluation</p>
+              )}
+            </>
+          )}
+        </div>
+      )}
+
       {/* Rating + Notes */}
       <div className="bg-surface rounded-lg p-4 border border-border space-y-4">
         <div>
-          <label className="block text-sm text-text-secondary mb-2">How did it go?</label>
+          <label className="block text-sm text-text-secondary mb-2">Self Rating</label>
           <RatingInput value={rating} onChange={setRating} />
         </div>
         <div>

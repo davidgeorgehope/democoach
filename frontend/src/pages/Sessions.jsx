@@ -14,7 +14,15 @@ export default function Sessions() {
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
-      <h1 className="text-2xl font-bold">Session History</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-bold">Session History</h1>
+        <button
+          onClick={() => navigate('/sessions/compare')}
+          className="px-4 py-2 bg-surface border border-border rounded-lg text-sm font-medium hover:bg-surface-hover transition-colors"
+        >
+          Compare Sessions
+        </button>
+      </div>
 
       {/* Stats */}
       {stats && (

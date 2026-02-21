@@ -8,6 +8,7 @@ import Objections from './pages/Objections'
 import Personas from './pages/Personas'
 import Transcripts from './pages/Transcripts'
 import KnowledgeBase from './pages/KnowledgeBase'
+import SessionCompare from './pages/SessionCompare'
 
 export default function App() {
   return (
@@ -17,6 +18,7 @@ export default function App() {
         <Route path="/train" element={<Train />} />
         <Route path="/sessions" element={<Sessions />} />
         <Route path="/sessions/:id" element={<SessionReview />} />
+        <Route path="/sessions/compare" element={<SessionCompare />} />
         <Route path="/objections" element={<Objections />} />
         <Route path="/personas" element={<Personas />} />
         <Route path="/transcripts" element={<Transcripts />} />

@@ -6,7 +6,7 @@ import os
 
 from db import init_db, seed_data, cleanup_stale_sessions
 from services.agent_service import ensure_agent_exists
-from routers import agent, personas, objections, sessions, transcripts, kb
+from routers import agent, personas, objections, sessions, transcripts, kb, research
 
 
 @asynccontextmanager
@@ -37,6 +37,7 @@ app.include_router(objections.router, prefix="/api/objections", tags=["objection
 app.include_router(sessions.router, prefix="/api/sessions", tags=["sessions"])
 app.include_router(transcripts.router, prefix="/api/transcripts", tags=["transcripts"])
 app.include_router(kb.router, prefix="/api/kb", tags=["kb"])
+app.include_router(research.router, prefix="/api/research", tags=["research"])
 
 
 @app.get("/api/health")

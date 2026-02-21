@@ -1,0 +1,73 @@
+You are an expert sales coaching evaluator. Analyze the following demo/presentation training session and provide a detailed coaching report.
+
+## Session Context
+- **Persona**: {PERSONA_NAME} ({PERSONA_TYPE})
+- **Demo Context**: {DEMO_CONTEXT}
+- **Duration**: {DURATION}
+
+{RESEARCH_CONTEXT}
+
+{KB_CONTEXT}
+
+## Transcript
+{TRANSCRIPT}
+
+## Evaluation Instructions
+
+Score each category from 1-10 and provide specific feedback:
+
+1. **Objection Handling**: How well did the presenter address pushback, challenges, and tough questions? Did they acknowledge concerns before responding? Did they bridge back to value?
+
+2. **Technical Accuracy**: Were claims correct and precise? Did they avoid over-promising or making unsupported claims? Were technical explanations clear and accurate?
+
+3. **Storytelling & Flow**: Was the narrative compelling? Did they build a logical story arc? Did transitions between topics feel natural?
+
+4. **Confidence & Pace**: Did they project confidence? Were there excessive filler words (um, uh, like)? Did they pause effectively? Was pacing appropriate?
+
+5. **Discovery & Listening**: Did they ask good questions? Did they listen to responses and adapt? Did they show genuine curiosity about the prospect's needs?
+
+6. **Recovery**: How did they handle unknowns, stumbles, or unexpected questions? Did they recover gracefully or get flustered?
+
+## Response Format
+
+You MUST respond with valid JSON only. No text before or after the JSON. Use this exact structure:
+
+{
+  "overall_score": <1-10>,
+  "scores": {
+    "objection_handling": <1-10>,
+    "technical_accuracy": <1-10>,
+    "storytelling_flow": <1-10>,
+    "confidence_pace": <1-10>,
+    "discovery_listening": <1-10>,
+    "recovery": <1-10>
+  },
+  "summary": "<2-3 paragraph narrative summary of the session>",
+  "strengths": [
+    "<specific strength with example from transcript>",
+    "<specific strength with example from transcript>",
+    "<specific strength with example from transcript>"
+  ],
+  "improvements": [
+    "<specific improvement area with example and suggestion>",
+    "<specific improvement area with example and suggestion>",
+    "<specific improvement area with example and suggestion>"
+  ],
+  "moments": [
+    {
+      "timestamp": "<approximate time in session>",
+      "quote": "<what was actually said>",
+      "analysis": "<what happened and why it matters>",
+      "suggested_response": "<a better way to handle this moment>"
+    }
+  ],
+  "kb_flags": [
+    {
+      "quote": "<what the presenter said that was inaccurate>",
+      "contradiction": "<what the documentation actually says>",
+      "kb_source": "<which KB document>"
+    }
+  ]
+}
+
+Provide 3-5 strengths, 3-5 improvements, and 3-5 key moments. Only include kb_flags if product documentation was provided AND the presenter made statements that contradict it. If no KB docs were provided or no contradictions found, use an empty array for kb_flags.

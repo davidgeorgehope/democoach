@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
 import LiveTranscript from './LiveTranscript'
 import SessionTimer from './SessionTimer'
+import CoachingIndicators from './CoachingIndicators'
 import { markMoment } from '../api'
 
 export default function OpenAIVoiceSession({ token, sessionId, durationMinutes, persona, systemPrompt, onEnd, selectedDeviceId }) {
@@ -339,6 +340,13 @@ ${systemPrompt}`
       <div className="flex-1 min-h-0">
         <LiveTranscript messages={transcript} persona={persona} />
       </div>
+
+      {/* Coaching Indicators */}
+      {startTimeRef.current && (
+        <div className="bg-surface rounded-lg px-4 py-2">
+          <CoachingIndicators transcript={transcript} agentStatus={agentStatus} />
+        </div>
+      )}
 
       {/* Controls */}
       <div className="flex items-center gap-3 bg-surface rounded-lg p-4">

@@ -34,6 +34,8 @@ export const updatePersona = (id, data) => request(`/personas/${id}`, { method: 
 export const deletePersona = (id) => request(`/personas/${id}`, { method: 'DELETE' })
 export const previewVoice = (id) =>
   fetch(`${BASE}/personas/${id}/preview`, { method: 'POST' }).then(r => r.blob())
+export const exportPersona = (id) => request(`/personas/export/${id}`)
+export const importPersona = (data) => request('/personas/import', { method: 'POST', body: data })
 
 // Objections
 export const listObjections = (params = {}) => {
@@ -65,6 +67,15 @@ export const uploadTranscript = (file) => {
 }
 export const extractObjections = (id) => request(`/transcripts/${id}/extract`, { method: 'POST' })
 export const deleteTranscript = (id) => request(`/transcripts/${id}`, { method: 'DELETE' })
+
+// Research
+export const researchCompany = (data) => request('/research/company', { method: 'POST', body: data })
+export const researchCompetitive = (data) => request('/research/competitive', { method: 'POST', body: data })
+
+// Coaching Reports
+export const evaluateSession = (id) => request(`/sessions/${id}/evaluate`, { method: 'POST' })
+export const getSessionReport = (id) => request(`/sessions/${id}/report`)
+export const getSessionProgress = () => request('/sessions/progress')
 
 // Knowledge Base
 export const listKBDocs = () => request('/kb')

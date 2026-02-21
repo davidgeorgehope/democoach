@@ -3,6 +3,7 @@ from models import SessionStartRequest, SessionMarkRequest, SessionUpdateRequest
 from db import get_connection
 from services.prompt_service import build_system_prompt
 from services.agent_service import update_agent_for_session, get_signed_url, get_conversation_transcript
+from services.evaluation_service import generate_coaching_report, get_report
 import json
 
 router = APIRouter()
@@ -16,8 +17,8 @@ async def start_session(data: SessionStartRequest):
         conn.close()
         raise HTTPException(status_code=404, detail="Persona not found")
 
-    # Build dynamic prompt
-    prompt = build_system_prompt(data.persona_id, data.demo_context or "")
+    # Build dynamic prompt (with optional research context)
+    prompt = build_system_prompt(data.persona_id, data.demo_context or "", data.research_ids)
 
     # Update agent with session-specific config
     try:
@@ -121,6 +122,49 @@ async def update_session(session_id: int, data: SessionUpdateRequest):
     session = conn.execute("SELECT * FROM sessions WHERE id = ?", (session_id,)).fetchone()
     conn.close()
     return {"session": dict(session)}
+
+
+@router.post("/{session_id}/evaluate")
+async def evaluate_session(session_id: int):
+    """Generate an AI coaching report for a session."""
+    conn = get_connection()
+    session = conn.execute("SELECT * FROM sessions WHERE id = ?", (session_id,)).fetchone()
+    conn.close()
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    try:
+        report = await generate_coaching_report(session_id)
+        return {"report": report}
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Evaluation failed: {e}")
+
+
+@router.get("/{session_id}/report")
+async def get_session_report(session_id: int):
+    """Get an existing coaching report for a session."""
+    report = get_report(session_id)
+    if not report:
+        raise HTTPException(status_code=404, detail="No coaching report found for this session")
+    return {"report": report}
+
+
+@router.get("/progress")
+async def session_progress():
+    """Get progress data for all sessions with coaching reports."""
+    conn = get_connection()
+    rows = conn.execute("""
+        SELECT cr.session_id, s.started_at as date, cr.overall_score, cr.scores_json,
+               p.name as persona_name
+        FROM coaching_reports cr
+        JOIN sessions s ON cr.session_id = s.id
+        LEFT JOIN personas p ON s.persona_id = p.id
+        ORDER BY s.started_at ASC
+    """).fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
 
 
 @router.get("/stats")

@@ -38,6 +38,7 @@ def init_db():
             voice_id TEXT NOT NULL,
             voice_name TEXT,
             avatar_color TEXT DEFAULT '#F46800',
+            tags TEXT,
             is_default BOOLEAN DEFAULT 0,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -88,10 +89,49 @@ def init_db():
             rating INTEGER,
             notes TEXT
         );
+
+        CREATE TABLE IF NOT EXISTS research (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            session_id INTEGER REFERENCES sessions(id) ON DELETE SET NULL,
+            research_type TEXT NOT NULL,
+            query TEXT NOT NULL,
+            results_json TEXT NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+
+        CREATE TABLE IF NOT EXISTS coaching_reports (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            session_id INTEGER UNIQUE REFERENCES sessions(id) ON DELETE CASCADE,
+            overall_score INTEGER CHECK (overall_score BETWEEN 1 AND 10),
+            scores_json TEXT NOT NULL,
+            strengths_json TEXT NOT NULL,
+            improvements_json TEXT NOT NULL,
+            moments_json TEXT NOT NULL,
+            summary TEXT NOT NULL,
+            kb_flags_json TEXT,
+            raw_response TEXT,
+            model_used TEXT NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
     """)
 
     conn.commit()
+
+    # Migrations for existing databases
+    _run_migrations(conn)
+
     conn.close()
+
+
+def _run_migrations(conn):
+    """Add columns that may be missing from existing databases."""
+    cursor = conn.cursor()
+
+    # Check if personas.tags column exists
+    cols = [row[1] for row in cursor.execute("PRAGMA table_info(personas)").fetchall()]
+    if "tags" not in cols:
+        cursor.execute("ALTER TABLE personas ADD COLUMN tags TEXT")
+        conn.commit()
 
 
 def seed_data():

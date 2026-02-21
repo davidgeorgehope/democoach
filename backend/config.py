@@ -8,6 +8,7 @@ class Settings:
     ELEVENLABS_API_KEY: str = os.getenv("ELEVENLABS_API_KEY", "")
     ANTHROPIC_API_KEY: str = os.getenv("ANTHROPIC_API_KEY", "")
     OPENAI_API_KEY: str = os.getenv("OPENAI_API_KEY", "")
+    GOOGLE_AI_API_KEY: str = os.getenv("GOOGLE_AI_API_KEY", "")
     DATABASE_PATH: str = os.getenv("DATABASE_PATH", "data/reframe.db")
     DEFAULT_LLM: str = "gemini-2.0-flash-001"
     AGENT_TEMPERATURE: float = 0.8
