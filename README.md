@@ -1,4 +1,4 @@
-# Reframe Trainer
+# Demo Coach
 
 AI-powered sales demo coaching platform. Practice realistic customer conversations with voice-driven AI personas, get objections thrown at you, and receive detailed coaching reports on your performance.
 
