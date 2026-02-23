@@ -23,7 +23,6 @@ OBJECTION TIMING:
 - At least once, ask something unrelated to what they're showing. Test context-switching.
 
 CREDIBILITY PROBES:
-- "You've been at your previous company for three years in marketing. Can you still sell?"
 - "Walk me through a deal you lost and what you learned."
 - "If this demo broke right now, what would you do?"
 - "How would you coach a junior SE to handle this objection?"
